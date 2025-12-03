@@ -324,7 +324,7 @@ bool CampusCompass::handleInsert(const string &command) {
 
     // --- Validate class codes ---
     for (const string &c : classList) {
-        if (classLocations.count(c) == 0) {
+        if (classInfo.count(c) == 0) {
             cout << "unsuccessful" << endl;
             return false;
         }
@@ -394,7 +394,7 @@ bool CampusCompass::handleDropClass(const string &command) {
     }
 
     // Class must exist globally
-    if (!classLocations.count(classCode)) {
+    if (!classInfo.count(classCode)) {
         cout << "unsuccessful" << endl;
         return false;
     }
@@ -441,7 +441,7 @@ bool CampusCompass::handleReplaceClass(const string &command) {
     }
 
     // newClass must exist globally
-    if (!classLocations.count(newClass)) {
+    if (!classInfo.count(newClass)) {
         cout << "unsuccessful" << endl;
         return false;
     }
@@ -475,7 +475,7 @@ bool CampusCompass::handleRemoveClassCmd(const string &command) {
     ss >> classCode;
 
     // Class must exist globally
-    if (!classLocations.count(classCode)) {
+    if (!classInfo.count(classCode)) {
         cout << "0" << endl;  // no students dropped
         return false;
     }
@@ -648,7 +648,7 @@ bool CampusCompass::handlePrintShortestEdges(const string &command) {
 
     // For each class
     for (const string &c : sortedClasses) {
-        int loc = classLocations[c];
+        int loc = classInfo[c].location;
         int d = dist.count(loc) ? dist[loc] : INT_MAX;
 
         if (d == INT_MAX)
@@ -682,7 +682,7 @@ bool CampusCompass::handlePrintStudentZone(const string &command) {
     verts.insert(st.residence);
 
     for (const string &c : st.classes) {
-        int target = classLocations[c];
+        int target = classInfo[c].location;
         if (dist[target] == INT_MAX) continue;
 
         int cur = target;

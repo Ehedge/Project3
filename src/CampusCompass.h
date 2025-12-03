@@ -26,7 +26,6 @@ unordered_map<string, Student> students;
 unordered_map<int, vector<Edge>> graph;
 
 
-unordered_map<string, int> classLocations;
 
 
 unordered_map<int, string> locationNames;
