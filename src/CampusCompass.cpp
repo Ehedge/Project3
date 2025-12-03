@@ -17,6 +17,8 @@ CampusCompass::CampusCompass() {
     // initialize your object
 }
 
+static int parseTime(const string &t);
+
 bool CampusCompass::ParseCSV(const string &edges_filepath, const string &classes_filepath) {
     ifstream edges(edges_filepath);
     ifstream classes(classes_filepath);
@@ -92,8 +94,10 @@ unordered_map<int, int> CampusCompass::dijkstra(int start) {
     pq.push({0, start});
 
     while (!pq.empty()) {
-        auto [d, u] = pq.top();
+        auto top = pq.top();
         pq.pop();
+        int d = top.first;
+        int u = top.second;
         if (d > dist[u]) continue;
 
         for (const auto &e : graph[u]) {
@@ -122,7 +126,10 @@ unordered_map<int,int> CampusCompass::dijkstraParent(int start, unordered_map<in
     pq.push({0, start});
 
     while (!pq.empty()) {
-        auto [d, u] = pq.top(); pq.pop();
+        auto top = pq.top(); 
+        pq.pop();
+        int d = top.first;
+        int u = top.second;
         if (d > dist[u]) continue;
 
         for (const auto &e : graph[u]) {
@@ -166,8 +173,10 @@ int CampusCompass::primMST(const unordered_set<int> &verts) {
     int total = 0;
 
     while (used.size() < verts.size() && !pq.empty()) {
-        auto [w, uv] = pq.top(); pq.pop();
-        int v = uv.second;
+        auto top = pq.top(); 
+        pq.pop();
+        int w = top.first;
+        int v = top.second.second;
         if (used.count(v)) continue;
 
         used.insert(v);

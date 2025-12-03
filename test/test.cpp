@@ -1,84 +1,136 @@
-#include <catch2/catch_test_macros.hpp>
+#include "catch/catch_amalgamated.hpp"
 #include <iostream>
+#include <sstream>
+#include <vector>
+#include <string>
 
-// change if you choose to use a different header name
-#include "CampusCompass.h"
+#include "../src/CampusCompass.h"
 
 using namespace std;
 
-// the syntax for defining a test is below. It is important for the name to be
-// unique, but you can group multiple tests with [tags]. A test can have
-// [multiple][tags] using that syntax.
-TEST_CASE("Example Test Name - Change me!", "[tag]") {
-  // instantiate any class members that you need to test here
-  int one = 1;
+// Helper: run a list of commands through CampusCompass and capture stdout
+static string runCommands(const vector<string>& cmds) {
+    CampusCompass c;
+    c.ParseCSV("../data/edges.csv", "../data/classes.csv");
 
-  // anything that evaluates to false in a REQUIRE block will result in a
-  // failing test
-  REQUIRE(one == 0); // fix me!
+    ostringstream oss;
+    streambuf* oldBuf = cout.rdbuf(oss.rdbuf());
 
-  // all REQUIRE blocks must evaluate to true for the whole test to pass
-  REQUIRE(false); // also fix me!
+    for (const auto& cmd : cmds) {
+        c.ParseCommand(cmd);
+    }
+
+    cout.rdbuf(oldBuf);
+    return oss.str();
 }
 
-TEST_CASE("Test 2", "[tag]") {
-  // you can also use "sections" to share setup code between tests, for example:
-  int one = 1;
+// 1) Basic insert + remove behavior
+TEST_CASE("Insert and remove student", "[insert][remove]") {
+    vector<string> cmds = {
+        R"(insert "Alice" 10000001 1 1 COP3502)",
+        R"(remove 10000001)",
+        R"(remove 10000001)"
+    };
 
-  SECTION("num is 2") {
-    int num = one + 1;
-    REQUIRE(num == 2);
-  };
+    string output = runCommands(cmds);
 
-  SECTION("num is 3") {
-    int num = one + 2;
-    REQUIRE(num == 3);
-  };
+    string expected =
+        "successful\n"   // insert
+        "successful\n"   // first remove
+        "unsuccessful\n"; // second remove (already gone)
 
-  // each section runs the setup code independently to ensure that they don't
-  // affect each other
+    REQUIRE(output == expected);
 }
 
-// Refer to Canvas for a list of required tests. 
-// We encourage you to write more than required to ensure proper functionality, but only the ones on Canvas will be graded.
+// 2) dropClass removes student when last class is dropped
+TEST_CASE("dropClass removes student when no classes left", "[dropClass]") {
+    vector<string> cmds = {
+        R"(insert "Alice" 10000001 1 1 COP3502)",
+        R"(dropClass 10000001 COP3502)",
+        R"(remove 10000001)"
+    };
 
-// See the following for an example of how to easily test your output.
-// Note that while this works, I recommend also creating plenty of unit tests for particular functions within your code.
-// This pattern should only be used for final, end-to-end testing.
+    string output = runCommands(cmds);
 
-// This uses C++ "raw strings" and assumes your CampusCompass outputs a string with
-//   the same thing you print.
-TEST_CASE("Example CampusCompass Output Test", "[flag]") {
-  // the following is a "raw string" - you can write the exact input (without
-  //   any indentation!) and it should work as expected
-  // this is based on the input and output of the first public test case
-  string input = R"(6
-insert "Student A" 10000001 1 1 COP3502
-insert "Student B" 10000002 1 1 COP3502
-insert "Student C" 10000003 1 2 COP3502 MAC2311
-dropClass 10000001 COP3502
-remove 10000001
-removeClass COP3502
-)";
+    string expected =
+        "successful\n"    // insert
+        "successful\n"    // dropClass (student removed internally)
+        "unsuccessful\n"; // remove fails because student no longer exists
 
-  string expectedOutput = R"(successful
-successful
-successful
-successful
-unsuccessful
-2
-)";
+    REQUIRE(output == expected);
+}
 
-  string actualOutput;
+// 3) Global removeClass behavior (matches project sample)
+TEST_CASE("removeClass sample scenario", "[removeClass]") {
+    vector<string> cmds = {
+        R"(insert "Brandon" 45679999 20 2 COP3530 MAC2311)",
+        R"(insert "Brian" 35459999 21 3 COP3530 CDA3101 MAC2311)",
+        R"(insert "Briana" 87879999 22 3 CDA3101 MAC2311 EEL3701)",
+        R"(removeClass COP3530)",
+        R"(remove 87879999)",
+        R"(removeClass CDA3101)",
+        R"(printShortestEdges 35459999)"
+    };
 
-  // somehow pass your input into your CampusCompass and parse it to call the
-  // correct functions, for example:
-  /*
-  CampusCompass c;
-  c.parseInput(input)
-  // this would be some function that sends the output from your class into a string for use in testing
-  actualOutput = c.getStringRepresentation()
-  */
+    string output = runCommands(cmds);
 
-  REQUIRE(actualOutput == expectedOutput);
+    // From the project statement:
+    // After these commands, only Brian remains with MAC2311 reachable in 11 minutes.
+    string expected =
+        "successful\n"               // insert Brandon
+        "successful\n"               // insert Brian
+        "successful\n"               // insert Briana
+        "2\n"                        // removeClass COP3530 (Brandon & Brian)
+        "successful\n"               // remove Briana
+        "1\n"                        // removeClass CDA3101 (Brian only)
+        "Name: Brian\n"
+        "MAC2311 | Total Time: 11\n";
+
+    REQUIRE(output == expected);
+}
+
+// 4) toggleEdgesClosure + checkEdgeStatus on a known edge (1-2)
+TEST_CASE("toggleEdgesClosure and checkEdgeStatus", "[edges]") {
+    // We assume edge (1,2) exists and initially open (per project data).
+    vector<string> cmds = {
+        R"(checkEdgeStatus 1 2)",
+        R"(toggleEdgesClosure 1 1 2)",
+        R"(checkEdgeStatus 1 2)",
+        R"(toggleEdgesClosure 1 1 2)",
+        R"(checkEdgeStatus 1 2)"
+    };
+
+    string output = runCommands(cmds);
+
+    string expected =
+        "open\n"        // initial state
+        "successful\n"  // toggle (close)
+        "closed\n"      // now closed
+        "successful\n"  // toggle (open)
+        "open\n";       // open again
+
+    REQUIRE(output == expected);
+}
+
+// 5) printShortestEdges for a single student
+TEST_CASE("printShortestEdges for one student", "[shortest]") {
+    // Brandon at residence 20 with COP3530 (loc 14) and MAC2311 (loc 18)
+    // From the given data, shortest times are:
+    // 20 -> 14: 20
+    // 20 -> 18: 15
+    vector<string> cmds = {
+        R"(insert "Brandon" 45679999 20 2 COP3530 MAC2311)",
+        R"(printShortestEdges 45679999)"
+    };
+
+    string output = runCommands(cmds);
+
+    // Classes are sorted lexicographically: COP3530 then MAC2311
+    string expected =
+        "successful\n"
+        "Name: Brandon\n"
+        "COP3530 | Total Time: 20\n"
+        "MAC2311 | Total Time: 15\n";
+
+    REQUIRE(output == expected);
 }

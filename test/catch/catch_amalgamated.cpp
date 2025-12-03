@@ -12,8 +12,21 @@
 //  This file is an amalgamation of multiple different files.
 //  You probably shouldn't edit it directly.
 //  ----------------------------------------------------------
+#include <ctime>
+
+static int portable_gmtime_s(std::tm* out, const std::time_t* in) {
+    std::tm* res = std::gmtime(in);
+    if (!res) return 1;     
+    *out = *res;
+    return 0;
+}
+
+
+
+
 
 #include "catch_amalgamated.hpp"
+
 
 
 #ifndef CATCH_WINDOWS_H_PROXY_HPP_INCLUDED
@@ -10134,7 +10147,11 @@ namespace Catch {
 
             std::tm timeInfo = {};
 #if defined (_MSC_VER) || defined (__MINGW32__)
-            gmtime_s(&timeInfo, &rawtime);
+
+            #if defined (_MSC_VER)
+                gmtime_s(&timeInfo, &rawtime);  
+                         gmtime_r(&rawtime, &timeInfo);  
+            #endif
 #elif defined (CATCH_PLATFORM_PLAYSTATION)
             gmtime_s(&rawtime, &timeInfo);
 #elif defined (__IAR_SYSTEMS_ICC__)
